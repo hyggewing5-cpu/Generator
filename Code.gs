@@ -119,8 +119,7 @@ function json_(o) {
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('GenLog')
-    .addItem('ติดตั้ง / อัปเกรดโครงสร้างชีต', 'setup')
-    .addItem('ตรวจความปลอดภัยของ PIN', 'auditUsers').addToUi();
+    .addItem('ติดตั้ง / อัปเกรดโครงสร้างชีต', 'setup').addToUi();
 }
 
 function setup() {
@@ -221,78 +220,24 @@ function backfillGenId_(sh, gid) {
 }
 
 /* ======================= AUTH ======================= */
-const LOGIN_DEV_MAX = 5;      // ใส่ PIN ผิดได้กี่ครั้งต่ออุปกรณ์ ภายใน 10 นาที
-const LOGIN_ALL_MAX = 40;     // ผิดรวมทุกอุปกรณ์เกินนี้ → ล็อกเฉพาะอุปกรณ์ที่ยังไม่เคยเข้าระบบสำเร็จ
-const TRUST_DAYS = 30;        // อุปกรณ์ที่เคยเข้าระบบสำเร็จ ถือว่าเชื่อถือได้กี่วัน
-const DEFAULT_PINS = ['482913', '715204', '639871'];
-
-function login(pin, deviceId) {
+function login(pin) {
   const cache = CacheService.getScriptCache();
-  const dev = /^[A-Za-z0-9-]{8,64}$/.test(String(deviceId || '')) ? String(deviceId) : '';
-  const dk = 'fail_d_' + (dev ? dev.replace(/-/g, '').slice(0, 20) : 'anon');
-  const devFails = Number(cache.get(dk) || 0), allFails = Number(cache.get('fail_all') || 0);
-  if (devFails >= LOGIN_DEV_MAX) throw new Error('ใส่ PIN ผิดหลายครั้ง กรุณารอ 10 นาที');
-  if (allFails >= LOGIN_ALL_MAX && !isTrusted_(dev))
-    throw new Error('ระบบล็อกการเข้าสู่ระบบชั่วคราว (มีการใส่ PIN ผิดจำนวนมาก) กรุณารอ 10 นาที หรือใช้เครื่องที่เคยเข้าสู่ระบบแล้ว');
+  const fails = Number(cache.get('login_fail') || 0);
+  if (fails >= 10) throw new Error('ใส่ PIN ผิดหลายครั้ง กรุณารอ 10 นาที');
   pin = String(pin || '').trim();
   const matches = readAll_(SH.USERS).filter(r => String(r.PIN).trim() === pin && isTrue_(r.Active));
   if (matches.length > 1) throw new Error('PIN ซ้ำกับผู้ใช้อื่น กรุณาแจ้งผู้ดูแลให้เปลี่ยน PIN');
   const u = matches[0];
   if (!pin || !u) {
-    cache.put(dk, String(devFails + 1), 600);
-    cache.put('fail_all', String(allFails + 1), 600);
-    Utilities.sleep(1500);                      // หน่วงเวลา ทำให้เดา PIN ช้าลง
+    cache.put('login_fail', String(fails + 1), 600);
     throw new Error('PIN ไม่ถูกต้อง');
   }
-  cache.remove(dk);
-  trustDevice_(dev);
+  const token = Utilities.getUuid();
   const gs = String(u.Gens == null ? '' : u.Gens).split(/[,\s;]+/).map(x => x.trim().toUpperCase()).filter(String);
   const user = { name: String(u.Name), role: String(u.Role).toLowerCase(),
                  gens: (!gs.length || gs.indexOf('*') >= 0) ? null : gs };   // null = ทุกเครื่อง
-  const token = Utilities.getUuid();
   cache.put('tok_' + token, JSON.stringify(user), TOKEN_TTL);
-  const warn = [];
-  if (user.role === 'admin') {
-    const bad = readAll_(SH.USERS).filter(r => isTrue_(r.Active) && DEFAULT_PINS.indexOf(String(r.PIN).trim()) >= 0);
-    if (bad.length) warn.push('ยังมี ' + bad.length + ' บัญชีที่ใช้ PIN เริ่มต้น (' + bad.map(r => r.Name).join(', ') + ') กรุณาเปลี่ยนในชีต Users ทันที');
-  }
-  return { token: token, user: user, warn: warn };
-}
-
-// อุปกรณ์ที่เคยเข้าสู่ระบบสำเร็จ — เก็บใน Script Properties (ไม่เก็บ PIN)
-function trustKey_(dev) { return dev ? dev.replace(/-/g, '').slice(0, 12) : ''; }
-function trustMap_() {
-  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('trusted_devices') || '{}'); }
-  catch (e) { return {}; }
-}
-function isTrusted_(dev) {
-  const t = dev && trustMap_()[trustKey_(dev)];
-  return !!t && Date.now() / 1000 - t < TRUST_DAYS * 86400;
-}
-function trustDevice_(dev) {
-  if (!dev) return;
-  const m = trustMap_(), now = Math.floor(Date.now() / 1000), k = trustKey_(dev);
-  if (m[k] && now - m[k] < 86400) return;       // เพิ่งบันทึกไปไม่ถึงวัน ไม่ต้องเขียนซ้ำ
-  m[k] = now;
-  Object.keys(m).forEach(x => { if (now - m[x] > TRUST_DAYS * 86400) delete m[x]; });
-  Object.keys(m).sort((a, b) => m[b] - m[a]).slice(200).forEach(x => delete m[x]);
-  PropertiesService.getScriptProperties().setProperty('trusted_devices', JSON.stringify(m));
-}
-
-// ตรวจความปลอดภัยของบัญชีผู้ใช้ (เมนู GenLog → ตรวจความปลอดภัยของ PIN)
-function auditUsers() {
-  const us = readAll_(SH.USERS).filter(r => isTrue_(r.Active)), seen = {}, out = [];
-  us.forEach(r => {
-    const p = String(r.PIN).trim(), n = String(r.Name);
-    if (DEFAULT_PINS.indexOf(p) >= 0) out.push('• ' + n + ': ใช้ PIN เริ่มต้น');
-    else if (!/^\d{6,8}$/.test(p)) out.push('• ' + n + ': PIN ควรเป็นตัวเลข 6–8 หลัก');
-    else if (/^(\d)\1+$/.test(p) || '01234567890'.indexOf(p) >= 0 || '98765432109'.indexOf(p) >= 0) out.push('• ' + n + ': PIN เดาง่าย (เลขซ้ำ/เรียงกัน)');
-    (seen[p] = seen[p] || []).push(n);
-  });
-  Object.keys(seen).forEach(p => { if (seen[p].length > 1) out.push('• PIN ซ้ำกัน: ' + seen[p].join(', ')); });
-  const msg = out.length ? out.join('\n') : 'ไม่พบปัญหา';
-  try { SpreadsheetApp.getUi().alert('ตรวจความปลอดภัยของ PIN', msg, SpreadsheetApp.getUi().ButtonSet.OK); } catch (e) {}
-  return msg;
+  return { token: token, user: user };
 }
 
 function logout(token) {

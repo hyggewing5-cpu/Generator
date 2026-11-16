@@ -463,14 +463,6 @@ function toast(msg, type='ok'){
 }
 
 /* ============ LOGIN ============ */
-function deviceId(){
-  let d=store.get('gl_dev');
-  if(!d||!/^[A-Za-z0-9-]{8,64}$/.test(d)){
-    d=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('d'+Date.now().toString(36)+Math.random().toString(36).slice(2,12));
-    store.set('gl_dev',d);
-  }
-  return d;
-}
 function buildKeypad(){
   const keys=['1','2','3','4','5','6','7','8','9','C','0','OK'];
   $('#keypad').innerHTML = keys.map(k=>`<button class="key" data-k="${k}">${k==='OK'?'<span class="ms">login</span>':k==='C'?'<span class="ms">backspace</span>':k}</button>`).join('');
@@ -488,10 +480,9 @@ async function pinKey(k){
     if(S.pin.length<4){ $('#loginErr').textContent='PIN อย่างน้อย 4 หลัก'; return; }
     $('#loginErr').textContent='กำลังตรวจสอบ...';
     try{
-      const r = await api('login', S.pin, deviceId());
+      const r = await api('login', S.pin);
       S.token=r.token; S.user=r.user; store.set('gl_token',r.token); store.set('gl_user',JSON.stringify(r.user));
       S.pin=''; $('#loginErr').textContent=''; $('#login').classList.add('hidden'); startApp();
-      (r.warn||[]).forEach(w=>toast(w,'warn'));
     }catch(e){ $('#loginErr').textContent=e.message; S.pin=''; }
   } else if(S.pin.length<8) S.pin+=k;
   drawDots();
