@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<base target="_top">
+<script src="config.js"></script><!-- GitHub Pages: ตั้ง GENLOG_API_URL ใน config.js (ใน Apps Script ไม่ต้องมีไฟล์นี้) -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,500,1,0&display=block" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#060b17;--bg2:#0a1324;--panel:#0e1930;--panel2:#132241;--line:#1d2c4c;--text:#e7eefb;--muted:#8899b8;--dim:#5d6f92;
+--green:#22c55e;--amber:#f59e0b;--red:#ef4444;--blue:#3b82f6;--cyan:#06b6d4;--violet:#a78bfa;--r:16px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans Thai',system-ui,sans-serif;font-size:15px;line-height:1.5;color:var(--text);min-height:100vh;
+background:radial-gradient(900px 500px at 100% -10%,rgba(59,130,246,.16),transparent 60%),radial-gradient(700px 400px at -10% 110%,rgba(34,197,94,.08),transparent 60%),var(--bg);background-attachment:fixed;-webkit-tap-highlight-color:transparent}
+button,input,select,textarea{font:inherit;color:inherit}
+.ms{font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;font-size:22px;line-height:1;letter-spacing:normal;text-transform:none;display:inline-block;white-space:nowrap;direction:ltr;font-feature-settings:'liga';-webkit-font-feature-settings:'liga';-webkit-font-smoothing:antialiased;vertical-align:middle}
+.mono{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}.sm{font-size:13px}.hidden{display:none!important}
+.c-green{--c:var(--green)}.c-amber{--c:var(--amber)}.c-red{--c:var(--red)}.c-blue{--c:var(--blue)}.c-cyan{--c:var(--cyan)}.c-violet{--c:var(--violet)}.c-dim{--c:var(--dim)}
+.s-IDLE{--c:var(--green)}.s-OUTAGE{--c:var(--red)}.s-RUNNING{--c:var(--amber)}.s-SUPPLYING{--c:var(--blue)}.s-COOLDOWN{--c:var(--cyan)}.s-WARMUP{--c:var(--violet)}
+.f-ok{--c:var(--green)}.f-warn{--c:var(--amber)}.f-critical{--c:var(--red)}
+h1{font-size:24px;line-height:1.3}h2{font-size:22px;line-height:1.3}
+h3{font-size:16px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+/* layout */
+.app{display:flex;min-height:100vh}
+.side{width:248px;flex-shrink:0;position:sticky;top:0;height:100vh;padding:22px 14px;background:rgba(8,15,30,.8);backdrop-filter:blur(12px);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:4px}
+.brand{display:flex;align-items:center;gap:12px;padding:4px 8px 22px}
+.logo{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,#f59e0b,#ef4444);box-shadow:0 8px 24px -6px rgba(245,158,11,.6);flex-shrink:0}
+.logo .ms{color:#fff;font-size:26px}
+.brand b{display:block;font-size:17px}.brand small{color:var(--muted);font-size:12px}
+.nav{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;color:var(--muted);cursor:pointer;font-weight:500;border:1px solid transparent;background:none;width:100%;text-align:left;transition:.15s}
+.nav:hover{background:var(--panel);color:var(--text)}
+.nav.active{background:linear-gradient(90deg,rgba(59,130,246,.2),rgba(59,130,246,.04));color:#fff;border-color:rgba(59,130,246,.35)}
+.nav.active .ms{color:var(--blue)}
+.side .foot{margin-top:auto;padding:12px 8px 0;border-top:1px solid var(--line);font-size:13px}
+.main{flex:1;min-width:0;padding:22px 28px 110px;max-width:1400px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.topbar .mbrand{display:none;align-items:center;gap:10px}
+.pghead{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.bnav{display:none}
+/* components */
+.card{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:0 12px 32px -14px rgba(0,0,0,.7)}
+.grid{display:grid;gap:14px}
+.g-hero{grid-template-columns:1.3fr 1fr}.g-2{grid-template-columns:1fr 1fr;margin-top:14px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.sect{margin:22px 0 12px;font-size:15px;color:var(--muted);font-weight:600}
+.eyebrow{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;font-size:13px;font-weight:600;color:var(--c);border:1px solid var(--c);background:rgba(255,255,255,.03)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--c);animation:pulse 1.8s infinite;flex-shrink:0}
+@keyframes pulse{0%{box-shadow:0 0 0 0 var(--c)}70%{box-shadow:0 0 0 10px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.tag{display:inline-block;padding:3px 10px;border-radius:8px;font-size:12px;background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 16px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;font-weight:600;transition:.15s;text-decoration:none}
+.btn:hover{border-color:#2f4877}.btn:disabled{opacity:.5;cursor:wait}
+.btn.primary{background:linear-gradient(135deg,#2563eb,#3b82f6);border-color:transparent;color:#fff;box-shadow:0 8px 20px -8px rgba(59,130,246,.8)}
+.btn.danger{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.5);color:#fca5a5}
+.btn.ghost{background:transparent}.btn.block{width:100%}
+.iconbtn{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--panel);display:grid;place-items:center;cursor:pointer}
+/* hero */
+.hero{position:relative;overflow:hidden;border-color:var(--c)}
+.hero::after{content:'';position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:var(--c);opacity:.12;filter:blur(40px)}
+.hero h2{color:var(--c);margin:6px 0 12px;font-size:26px}
+.hero-top{display:flex;align-items:center;gap:10px}
+.hstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:14px 0 16px}
+.hs{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.hs span{display:block;font-size:12px;color:var(--muted)}.hs b{font-size:18px}
+/* tank */
+.fuelwrap{display:flex;gap:20px;margin-top:14px}
+.tank{position:relative;width:92px;min-height:210px;border-radius:18px;border:2px solid var(--line);background:#081022;overflow:hidden;flex-shrink:0}
+.tank .fill{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(180deg,var(--c),rgba(0,0,0,.5));transition:height 1s ease;box-shadow:0 -4px 24px -2px var(--c)}
+.tank .ticks{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:12px 0}
+.tank .ticks i{display:block;height:1px;width:20px;background:rgba(255,255,255,.2);margin-left:auto}
+.tank .pct{position:absolute;inset:0;display:grid;place-items:center;font-weight:700;font-size:20px;text-shadow:0 2px 8px #000}
+.fuelinfo{flex:1;min-width:0}
+.big{font-size:40px;font-weight:700;line-height:1.1;color:var(--c)}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.kv span{color:var(--muted)}
+/* kpi */
+.kpi{display:flex;flex-direction:column;gap:6px}
+.kpi .ic{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;color:var(--c);background:rgba(255,255,255,.04);border:1px solid var(--line)}
+.kpi .v{font-size:24px;font-weight:700}.kpi .v small{font-size:13px;color:var(--muted);font-weight:500;margin-left:4px}
+.kpi .l{font-size:13px;color:var(--muted)}
+/* alerts */
+.alert{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:12px;border:1px solid var(--c);background:rgba(255,255,255,.03);margin-bottom:10px;font-size:14px}
+.alert .ms{color:var(--c)}
+/* timeline */
+.timeline{display:flex;flex-direction:column;gap:2px;max-height:420px;overflow:auto}
+.tl{display:flex;gap:12px;padding:10px 4px;border-bottom:1px solid rgba(255,255,255,.04)}
+.tli{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:var(--c);background:rgba(255,255,255,.04);border:1px solid var(--line);flex-shrink:0}
+.tli .ms{font-size:20px}.tlb{min-width:0}.tlh{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.empty{padding:20px;text-align:center;color:var(--dim)}
+/* control */
+.flow{display:flex;gap:6px;margin:14px 0 18px;overflow-x:auto;padding-bottom:4px}
+.step{flex:1;min-width:92px;padding:10px;border-radius:12px;background:var(--panel);border:1px solid var(--line);text-align:center;font-size:13px;color:var(--dim)}
+.step .n{display:block;font-weight:700;font-size:12px}
+.step.done{color:var(--green);border-color:rgba(34,197,94,.4)}
+.step.now{color:#fff;border-color:var(--amber);background:rgba(245,158,11,.12);box-shadow:0 0 18px -6px var(--amber)}
+.actions{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.abtn{--c:var(--blue);display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:16px;border-radius:16px;border:1px solid var(--line);background:var(--panel2);min-height:118px;cursor:pointer;text-align:left;transition:.15s}
+.abtn .ms{font-size:34px;color:var(--c)}.abtn b{font-size:16px}.abtn small{color:var(--muted);font-size:12px;line-height:1.35}
+.abtn:not(:disabled):hover{transform:translateY(-2px);border-color:var(--c)}
+.abtn:not(:disabled){box-shadow:inset 0 0 0 1px rgba(255,255,255,.02),0 0 26px -12px var(--c);border-color:var(--c)}
+.abtn:disabled{opacity:.28;cursor:not-allowed;filter:grayscale(.6)}
+.statebar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-color:var(--c)}
+.statebar h2{color:var(--c);font-size:20px}
+/* forms */
+.fld{display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--muted);margin-bottom:12px}
+input,select,textarea{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:#081022;color:var(--text);outline:none;font-size:16px}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(59,130,246,.2)}
+input[type=range]{padding:0;accent-color:var(--amber);height:34px;background:transparent;border:none;box-shadow:none}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.chk{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);margin-bottom:10px;cursor:pointer}
+.chk input{width:18px;height:18px}
+.hint{font-size:13px;padding:10px 12px;border-radius:10px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);margin-bottom:12px;color:#c7d6f5}
+.hint.warn{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.4);color:#fde4b5}
+.ro{opacity:.55;pointer-events:none}
+/* tables */
+.tblwrap{overflow-x:auto;border-radius:12px;border:1px solid var(--line)}
+.tbl{width:100%;border-collapse:collapse;font-size:14px;white-space:nowrap}
+.tbl th{background:var(--panel2);color:var(--muted);font-weight:600;text-align:left;padding:10px 12px;position:sticky;top:0}
+.tbl td{padding:10px 12px;border-top:1px solid var(--line)}
+.tbl tr:hover td{background:rgba(255,255,255,.02)}
+.num{text-align:right!important;font-family:'JetBrains Mono',monospace}
+.pos{color:var(--green)}.neg{color:var(--red)}
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.chip{padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);cursor:pointer;font-size:13px}
+.chip:hover{border-color:var(--blue)}
+.chartbox{height:300px;position:relative}
+.progress{height:10px;border-radius:99px;background:var(--panel2);overflow:hidden;margin:10px 0}
+.progress i{display:block;height:100%;background:linear-gradient(90deg,var(--violet),var(--blue));border-radius:99px}
+/* modal / toast / login */
+.modal{position:fixed;inset:0;z-index:40;background:rgba(3,7,15,.7);backdrop-filter:blur(6px);display:grid;place-items:center;padding:16px}
+.mbox{width:100%;max-width:460px;max-height:92vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:20px;border-top:4px solid var(--c,var(--blue))}
+.mhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.mfoot{display:flex;gap:10px;margin-top:8px}.mfoot .btn{flex:1}
+#toasts{position:fixed;top:16px;right:16px;left:16px;z-index:60;display:flex;flex-direction:column;align-items:flex-end;gap:8px;pointer-events:none}
+.toast{max-width:420px;padding:12px 16px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);border-left:4px solid var(--c);box-shadow:0 10px 30px rgba(0,0,0,.5);font-size:14px;animation:tin .25s ease;pointer-events:auto}
+@keyframes tin{from{opacity:0;transform:translateY(-8px)}}
+.login{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:20px;background:radial-gradient(600px 400px at 50% 0%,rgba(245,158,11,.16),transparent),var(--bg)}
+.lbox{width:100%;max-width:360px;text-align:center}
+.lbox .logo{width:64px;height:64px;margin:0 auto 14px;border-radius:18px}.lbox .logo .ms{font-size:38px}
+.dots{display:flex;justify-content:center;gap:12px;margin:22px 0}
+.dots i{width:14px;height:14px;border-radius:50%;border:2px solid var(--dim)}
+.dots i.on{background:var(--amber);border-color:var(--amber)}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.key{height:62px;border-radius:14px;border:1px solid var(--line);background:var(--panel2);font-size:22px;font-weight:600;cursor:pointer}
+.key:active{transform:scale(.96);background:var(--line)}
+.err{color:#fca5a5;min-height:24px;margin-top:12px;font-size:14px}
+#printArea{display:none}
+/* responsive */
+.hide-desk{display:none}
+@media(max-width:1000px){
+  .side{display:none}.main{padding:12px 12px 100px}
+  .topbar .mbrand{display:flex}.topbar .clock{display:none}
+  .g-hero,.g-2{grid-template-columns:1fr}
+  .bnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(8,15,30,.94);backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+  .bnav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:var(--dim);font-size:11px;padding:6px 0;cursor:pointer}
+  .bnav button.active{color:var(--amber)}
+  h1{font-size:20px}.big{font-size:34px}
+  .kpis{grid-template-columns:1fr 1fr}
+  .actions{grid-template-columns:1fr 1fr}
+  .hide-sm{display:none}.hide-desk{display:grid}
+}
+@media(max-width:420px){.fuelwrap{gap:14px}.tank{width:76px}.row2{grid-template-columns:1fr}}
+/* multi-generator */
+.gensel{display:flex;align-items:center;gap:8px}
+.gensel select{width:auto;max-width:280px;padding:8px 12px;font-size:14px;font-weight:600;border-radius:12px;background:var(--panel)}
+.gentag{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:8px;font-size:12px;font-weight:600;color:var(--amber);border:1px solid rgba(245,158,11,.4);background:rgba(245,158,11,.08)}
+.fleet{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.fcard{cursor:pointer;border-color:var(--c);transition:.15s;position:relative;overflow:hidden}
+.fcard:hover{transform:translateY(-2px)}
+.fcard h3{margin-bottom:4px}
+.fbar{height:12px;border-radius:99px;background:var(--panel2);overflow:hidden;margin:12px 0 6px}
+.fbar i{display:block;height:100%;border-radius:99px;transition:width .6s}
+.gtbl td .btn{padding:6px 10px;font-size:13px}
+.off{opacity:.5}
+/* print */
+@media print{
+  @page{size:A4;margin:14mm}
+  body{background:#fff!important;color:#000;font-size:12pt}
+  .app,.bnav,#toasts,#modal,#login{display:none!important}
+  #printArea{display:block}
+  .pdoc h2,.pdoc h3{color:#000;text-align:center;margin-bottom:6px}
+  .pdoc p{text-align:center;margin-bottom:10px}
+  .ptbl{width:100%;border-collapse:collapse;margin:10px 0 16px;font-size:11pt}
+  .ptbl th,.ptbl td{border:1px solid #000;padding:5px 6px}
+  .ptbl th{background:#eee}
+  .ptbl td.r{text-align:right}
+  .sign{display:flex;justify-content:space-around;margin-top:40px;text-align:center}
+  .pright{text-align:right!important}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login" class="login hidden">
+  <div class="lbox">
+    <div class="logo"><span class="ms">bolt</span></div>
+    <h2>GenLog</h2>
+    <p class="muted">ระบบบันทึกการใช้งานเครื่องกำเนิดไฟฟ้า</p>
+    <div class="dots" id="pinDots"></div>
+    <div class="keypad" id="keypad"></div>
+    <div class="err" id="loginErr"></div>
+  </div>
+</div>
+
+<div class="app" id="app">
+  <aside class="side">
+    <div class="brand"><div class="logo"><span class="ms">bolt</span></div><div><b>GenLog</b><small>ระบบเครื่องกำเนิดไฟฟ้า</small></div></div>
+    <button class="nav" data-pg="fleet"><span class="ms">grid_view</span>ทุกเครื่อง</button>
+    <button class="nav" data-pg="dashboard"><span class="ms">space_dashboard</span>แดชบอร์ด</button>
+    <button class="nav" data-pg="control"><span class="ms">settings_power</span>ควบคุม / บันทึก</button>
+    <button class="nav" data-pg="fuel"><span class="ms">local_gas_station</span>เชื้อเพลิง</button>
+    <button class="nav" data-pg="reports"><span class="ms">monitoring</span>รายงาน</button>
+    <button class="nav admin-only" data-pg="settings"><span class="ms">tune</span>ตั้งค่า</button>
+    <div class="foot"><div id="userBox" class="muted"></div><button class="btn ghost block" style="margin-top:10px" onclick="doLogout()"><span class="ms">logout</span>ออกจากระบบ</button></div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="mbrand"><div class="logo" style="width:34px;height:34px"><span class="ms" style="font-size:20px">bolt</span></div><b>GenLog</b></div>
+      <div class="gensel hidden" id="genSelWrap"><span class="ms" style="color:var(--amber)">bolt</span><select id="genSel" aria-label="เลือกเครื่องกำเนิดไฟฟ้า"></select></div>
+      <div class="clock mono" id="clock"></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="pill s-IDLE" id="statePill"><span class="dot"></span><span id="statePillTxt">-</span></span>
+        <button class="iconbtn" onclick="refresh()" title="รีเฟรช"><span class="ms">refresh</span></button>
+        <button class="iconbtn hide-desk" onclick="doLogout()" title="ออก"><span class="ms">logout</span></button>
+      </div>
+    </div>
+
+    <!-- FLEET -->
+    <section class="page hidden" id="pg-fleet">
+      <div class="pghead"><div><h1>ภาพรวมทุกเครื่อง</h1><p class="muted">สถานะและน้ำมันคงเหลือของเครื่องกำเนิดไฟฟ้าที่เปิดใช้งาน · แตะการ์ดเพื่อเข้าดูรายเครื่อง</p></div>
+        <button class="btn primary admin-only" onclick="openAddGen()"><span class="ms">add</span>เพิ่มเครื่อง</button></div>
+      <div id="fleetAlerts"></div>
+      <div class="fleet" id="fleetGrid"><div class="card empty">กำลังโหลด...</div></div>
+      <div class="sect">สรุปเดือนนี้ (รวมทุกเครื่อง)</div>
+      <div class="grid kpis" id="fleetKpis"></div>
+    </section>
+
+    <!-- DASHBOARD -->
+    <section class="page" id="pg-dashboard">
+      <div class="pghead"><div><h1>แดชบอร์ด</h1><p class="muted" id="genInfo"></p></div></div>
+      <div id="alerts"></div>
+      <div class="grid g-hero">
+        <div class="card hero s-IDLE" id="heroCard">
+          <div class="hero-top"><span class="dot"></span><span class="eyebrow">สถานะเครื่องกำเนิดไฟฟ้า</span></div>
+          <h2 id="heroState">-</h2>
+          <div id="heroBody"></div>
+          <button class="btn primary" onclick="go('control')"><span class="ms">settings_power</span>ไปหน้าควบคุม</button>
+        </div>
+        <div class="card f-ok" id="fuelCard">
+          <div class="eyebrow">น้ำมันเชื้อเพลิงคงเหลือ (ประมาณการ)</div>
+          <div class="fuelwrap">
+            <div class="tank"><div class="fill" id="tankFill"></div><div class="ticks"><i></i><i></i><i></i><i></i><i></i></div><div class="pct mono" id="tankPct">-</div></div>
+            <div class="fuelinfo">
+              <div class="big mono" id="fuelL">-</div>
+              <div class="muted sm">ลิตร จากความจุ <span id="fuelCap"></span> ลิตร</div>
+              <div class="kv"><span>เดินได้อีก (โหลด <span id="planLoad"></span>%)</span><b class="mono" id="hrsLeft"></b></div>
+              <div class="kv"><span>เดินได้อีก (โหลด 100%)</span><b class="mono" id="hrsFull"></b></div>
+              <div class="kv"><span>ตรวจวัดจริงล่าสุด</span><b id="lastMeasure"></b></div>
+              <div class="kv"><span>เติมล่าสุด</span><b id="lastRefill"></b></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="sect">สรุปเดือนนี้</div>
+      <div class="grid kpis" id="kpis"></div>
+      <div class="grid g-2">
+        <div class="card"><h3><span class="ms">history</span>เหตุการณ์ล่าสุด</h3><div id="recent" class="timeline"></div></div>
+        <div class="card"><h3><span class="ms">autorenew</span>การวอร์มเครื่อง</h3><div id="warmBox"></div></div>
+      </div>
+    </section>
+
+    <!-- CONTROL -->
+    <section class="page hidden" id="pg-control">
+      <div class="pghead"><div><h1>ควบคุม / บันทึกการทำงาน</h1><p class="muted"><span class="gentag genname"></span> กดปุ่มตามเหตุการณ์จริง ระบบเปิดเฉพาะปุ่มที่ใช้ได้ในสถานะปัจจุบัน</p></div></div>
+      <div class="card statebar s-IDLE" id="stateBar"></div>
+      <div class="flow" id="flow"></div>
+      <div id="viewerNote" class="hint warn hidden">บัญชีของคุณเป็นผู้ดูรายงาน ไม่สามารถบันทึกข้อมูลได้</div>
+      <div class="actions" id="actionGrid"></div>
+      <div class="card"><h3><span class="ms">timeline</span>ไทม์ไลน์รอบปัจจุบัน</h3><div id="sessTimeline" class="timeline"></div></div>
+    </section>
+
+    <!-- FUEL -->
+    <section class="page hidden" id="pg-fuel">
+      <div class="pghead"><div><h1>เชื้อเพลิง</h1><p class="muted"><span class="gentag genname"></span> บันทึกการเติม และตรวจวัดระดับจริงเพื่อปรับยอดคงถัง</p></div></div>
+      <div class="grid g-2" style="margin-top:0">
+        <div class="card">
+          <h3><span class="ms" style="color:var(--green)">local_gas_station</span>บันทึกการเติมน้ำมัน</h3>
+          <form id="fRefill" class="opform">
+            <label class="fld">ปริมาณที่เติม (ลิตร) *<input type="number" name="liters" step="0.1" min="0.1" required inputmode="decimal"></label>
+            <div class="row2">
+              <label class="fld">ราคา/ลิตร (บาท)<input type="number" name="price" step="0.01" min="0" inputmode="decimal"></label>
+              <label class="fld">ระดับหลังเติม (วัดจริง)<input type="number" name="measuredAfter" step="0.1" min="0" inputmode="decimal" placeholder="ไม่บังคับ"></label>
+            </div>
+            <label class="fld">วันเวลา (เว้นว่าง = ตอนนี้)<input type="datetime-local" name="time"></label>
+            <label class="fld">หมายเหตุ<input name="note" placeholder="เช่น เลขที่ใบเบิก / ผู้ส่ง"></label>
+            <div class="hint" id="refillHint">-</div>
+            <button class="btn primary block" type="submit"><span class="ms">save</span>บันทึกการเติม</button>
+          </form>
+        </div>
+        <div class="card">
+          <h3><span class="ms" style="color:var(--blue)">straighten</span>ตรวจวัดระดับน้ำมันจริง</h3>
+          <form id="fMeasure" class="opform">
+            <label class="fld">ระดับที่วัดได้ (ลิตร) *<input type="number" name="measured" step="0.1" min="0" required inputmode="decimal"></label>
+            <label class="fld">วันเวลา (เว้นว่าง = ตอนนี้)<input type="datetime-local" name="time"></label>
+            <label class="fld">หมายเหตุ<input name="note" placeholder="เช่น วัดจากเกจ / ไม้วัด"></label>
+            <div class="hint" id="measureHint">-</div>
+            <button class="btn primary block" type="submit"><span class="ms">fact_check</span>บันทึกผลตรวจวัด</button>
+          </form>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px"><h3><span class="ms">receipt_long</span>ประวัติเชื้อเพลิงล่าสุด</h3><div class="tblwrap"><table class="tbl" id="fuelTbl"></table></div></div>
+    </section>
+
+    <!-- REPORTS -->
+    <section class="page hidden" id="pg-reports">
+      <div class="pghead"><div><h1>รายงาน</h1><p class="muted">สรุปการทำงาน ไฟดับ วอร์มเครื่อง และเชื้อเพลิง</p></div></div>
+      <div class="card">
+        <div class="filters">
+          <label class="fld" style="margin:0">เครื่อง<select id="rGen" onchange="S.rGen=this.value;runReport()"></select></label>
+          <label class="fld" style="margin:0">ตั้งแต่<input type="date" id="rFrom"></label>
+          <label class="fld" style="margin:0">ถึง<input type="date" id="rTo"></label>
+          <label class="fld" style="margin:0">ประเภท<select id="rType">
+            <option value="ALL">ทั้งหมด</option><option value="OUTAGE">ไฟดับ</option><option value="WARMUP">วอร์มเครื่อง</option>
+            <option value="FUEL">เชื้อเพลิง</option><option value="FAULT">เหตุขัดข้อง</option></select></label>
+          <button class="btn primary" onclick="runReport()"><span class="ms">search</span>แสดงรายงาน</button>
+        </div>
+        <div class="chips">
+          <span class="chip" onclick="quick('today')">วันนี้</span><span class="chip" onclick="quick('7d')">7 วัน</span>
+          <span class="chip" onclick="quick('month')">เดือนนี้</span><span class="chip" onclick="quick('lastmonth')">เดือนก่อน</span>
+          <span class="chip" onclick="quick('year')">ปีนี้</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" onclick="printReport()"><span class="ms">print</span>พิมพ์รายงาน</button>
+          <button class="btn" onclick="printAnnex()"><span class="ms">description</span>พิมพ์ผนวก ง</button>
+          <button class="btn admin-only" onclick="exportSheet()"><span class="ms">table_view</span>ส่งออก Google Sheet</button>
+        </div>
+      </div>
+      <div id="reportBody"></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="page hidden" id="pg-settings">
+      <div class="pghead"><div><h1>ตั้งค่าระบบ</h1><p class="muted">สำหรับผู้ดูแลระบบ · จัดการผู้ใช้/PIN ได้ที่ชีต Users</p></div></div>
+      <div class="card" style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+          <h3 style="margin:0"><span class="ms">electric_bolt</span>เครื่องกำเนิดไฟฟ้าทั้งหมด</h3>
+          <button class="btn primary" onclick="openAddGen()"><span class="ms">add</span>เพิ่มเครื่อง</button>
+        </div>
+        <div class="tblwrap"><table class="tbl gtbl" id="genTbl"></table></div>
+        <p class="muted sm" style="margin-top:10px">เครื่องที่ปิดใช้งานจะไม่แสดงในตัวเลือกและบันทึกไม่ได้ แต่ประวัติและรายงานยังอยู่ครบ · ปิดใช้งานได้เมื่อเครื่องอยู่ในสถานะพร้อมใช้งาน</p>
+      </div>
+      <div class="grid g-2" style="margin-top:0">
+        <div class="card"><h3><span class="ms">tune</span>ค่าเครื่องและการแจ้งเตือน <span class="gentag genname"></span></h3><form id="setForm"></form></div>
+        <div class="card">
+          <h3><span class="ms">speed</span>อัตราสิ้นเปลืองตามโหลด (ลิตร/ชม.) <span class="gentag genname"></span></h3>
+          <div class="tblwrap"><table class="tbl" id="curveTbl"></table></div>
+          <p class="muted sm" style="margin-top:10px">กรอกตามเอกสารของเครื่องนั้น ๆ · ช่อง "ใช้คำนวณ" ตั้งเป็นค่าสูงสุดเพื่อประมาณการแบบปลอดภัย</p>
+          <button class="btn primary block" style="margin-top:14px" onclick="saveSettings()"><span class="ms">save</span>บันทึกการตั้งค่า</button>
+          <hr style="border:none;border-top:1px solid var(--line);margin:20px 0">
+          <h3><span class="ms" style="color:var(--red)">restart_alt</span>รีเซ็ตสถานะ</h3>
+          <p class="muted sm" style="margin-bottom:10px">ใช้เมื่อกดปุ่มผิดหรือสถานะค้าง ระบบจะปิดรอบที่เปิดอยู่ของเครื่องที่เลือก ณ เวลาปัจจุบัน</p>
+          <button class="btn danger block" onclick="resetState()">รีเซ็ตสถานะเป็นพร้อมใช้งาน</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bnav">
+    <button data-pg="fleet"><span class="ms">grid_view</span>ทุกเครื่อง</button>
+    <button data-pg="dashboard"><span class="ms">space_dashboard</span>แดชบอร์ด</button>
+    <button data-pg="control"><span class="ms">settings_power</span>ควบคุม</button>
+    <button data-pg="fuel"><span class="ms">local_gas_station</span>น้ำมัน</button>
+    <button data-pg="reports"><span class="ms">monitoring</span>รายงาน</button>
+    <button data-pg="settings" class="admin-only"><span class="ms">tune</span>ตั้งค่า</button>
+  </nav>
+</div>
+
+<div id="modal" class="modal hidden"><div class="mbox" id="mbox">
+  <div class="mhead"><h3 id="mTitle" style="margin:0"></h3><button class="iconbtn" onclick="closeModal()"><span class="ms">close</span></button></div>
+  <div id="mBody"></div>
+  <div class="mfoot"><button class="btn ghost" onclick="closeModal()">ยกเลิก</button><button class="btn primary" id="mOk">ยืนยันบันทึก</button></div>
+</div></div>
+<div id="toasts"></div>
+<div id="printArea"></div>
+
+<script>
+/* ============ CONFIG ============ */
+const ANNEX_TITLE = 'ผนวก ง — บันทึกการบริการและตรวจสอบเชื้อเพลิง';
+const ACT = {
+  OUTAGE_START:{label:'ไฟฟ้าดับ',icon:'power_off',c:'red',desc:'บันทึกเวลาไฟฟ้าหลักดับ'},
+  GEN_START:{label:'สตาร์ทเครื่อง',icon:'play_circle',c:'amber',hm:true,desc:'เครื่องติดแล้ว (เริ่มนับชั่วโมงทำงาน)'},
+  TRANSFER_LOAD:{label:'จ่ายไฟเข้าระบบ',icon:'electrical_services',c:'green',load:true,desc:'สับโหลดเข้าเครื่องกำเนิดไฟฟ้า'},
+  LOAD_CHANGE:{label:'ปรับโหลด',icon:'tune',c:'blue',load:true,desc:'โหลดเปลี่ยน เพื่อคำนวณน้ำมันให้แม่นขึ้น'},
+  MAINS_RESTORED:{label:'ไฟหลักกลับมา',icon:'power',c:'cyan',desc:'ไฟฟ้าหลักกลับมา ย้ายโหลดกลับ'},
+  GEN_STOP:{label:'หยุดเครื่อง',icon:'stop_circle',c:'red',hm:true,desc:'ดับเครื่อง ปิดรอบการทำงานและคำนวณน้ำมัน'},
+  WARMUP_START:{label:'สตาร์ทวอร์มเครื่อง',icon:'autorenew',c:'violet',hm:true,desc:'วอร์มเครื่องตามรอบ (1–2 ครั้ง/สัปดาห์)'},
+  FAULT:{label:'แจ้งเหตุขัดข้อง',icon:'warning',c:'red',noteReq:true,desc:'บันทึกอาการผิดปกติ ไม่เปลี่ยนสถานะ'}
+};
+const ORDER = ['OUTAGE_START','GEN_START','TRANSFER_LOAD','LOAD_CHANGE','MAINS_RESTORED','GEN_STOP','WARMUP_START','FAULT'];
+const EV = {GEN_ADD:['add_circle','green'],GEN_ACTIVE:['power_settings_new','amber'],OUTAGE_START:['power_off','red'],GEN_START:['play_circle','amber'],TRANSFER_LOAD:['electrical_services','green'],
+  LOAD_CHANGE:['tune','blue'],MAINS_RESTORED:['power','cyan'],WARMUP_START:['autorenew','violet'],GEN_STOP:['stop_circle','red'],
+  FAULT:['warning','red'],REFILL:['local_gas_station','green'],MEASURE:['straighten','blue'],SETTINGS:['settings','dim'],RESET:['restart_alt','amber']};
+
+/* ============ STATE & HELPERS ============ */
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const store = {get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
+const S = {token:store.get('gl_token'), user:JSON.parse(store.get('gl_user')||'null'), dash:null, page:'dashboard', offset:0, chart:null, report:null, pin:'',
+  gen:store.get('gl_gen'), gens:[], rGen:null};
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtN = (n,d=1) => (n==null||n===''||isNaN(n)) ? '-' : Number(n).toLocaleString('th-TH',{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmtDT = ms => ms ? new Date(ms).toLocaleString('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : '-';
+const fmtD = ms => ms ? new Date(ms).toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'short',year:'numeric'}) : '-';
+const fmtT = ms => ms ? new Date(ms).toLocaleTimeString('th-TH',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit'}) : '-';
+const fmtDur = h => { if(h==null||isNaN(h)) return '-'; const m=Math.round(h*60); return Math.floor(m/60)+' ชม. '+(m%60)+' น.'; };
+const fmtClock = ms => { const s=Math.max(0,Math.floor(ms/1000)); return String(Math.floor(s/3600)).padStart(2,'0')+':'+String(Math.floor(s%3600/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); };
+const nowMs = () => Date.now() + S.offset;
+const localInput = ms => new Date(ms + 7*3600e3).toISOString().slice(0,16);
+const ymd = ms => new Date(ms + 7*3600e3).toISOString().slice(0,10);
+const addDays = (str,n) => { const d=new Date(str+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); };
+const thDate = str => fmtD(new Date(str+'T12:00:00+07:00').getTime());
+const canEdit = () => S.user && ['admin','operator'].includes(S.user.role);
+const gName = id => (S.gens.find(g=>g.id===id)||{}).name || id;
+const activeGens = () => S.gens.filter(g=>g.active);
+
+function rateAt(load, pts){
+  load = Math.max(0, Math.min(100, +load||0));
+  for(let i=0;i<pts.length-1;i++){const a=pts[i],b=pts[i+1]; if(load>=a.l&&load<=b.l) return b.l===a.l?a.r:a.r+(load-a.l)*(b.r-a.r)/(b.l-a.l);}
+  return pts[pts.length-1].r;
+}
+
+const API_URL = (window.GENLOG_API_URL || '').trim();
+const inAppsScript = () => !!(window.google && google.script && google.script.run);
+function apiFail(m, rej){
+  if(String(m).includes('SESSION_EXPIRED')){ doLogout(true); return rej(new Error('หมดเวลาการใช้งาน กรุณาเข้าสู่ระบบใหม่')); }
+  rej(new Error(m));
+}
+function api(fn, ...args){
+  if(inAppsScript()){                       // เปิดจาก Apps Script Web App
+    return new Promise((res,rej)=>{
+      google.script.run.withSuccessHandler(res).withFailureHandler(e=>apiFail(((e && e.message) || String(e)).replace(/^Exception:\s*/,''), rej))[fn](...args);
+    });
+  }
+  return new Promise((res,rej)=>{           // เปิดจาก GitHub Pages → เรียก Web App ผ่าน fetch
+    if(!API_URL) return rej(new Error('ยังไม่ได้ตั้งค่า GENLOG_API_URL ในไฟล์ config.js'));
+    fetch(API_URL, {method:'POST', redirect:'follow', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({fn, args})})
+      .then(r=>r.json())
+      .then(j=> j.ok ? res(j.data) : apiFail(j.error||'เกิดข้อผิดพลาด', rej))
+      .catch(e=> rej(e instanceof TypeError ? new Error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ตและ URL ใน config.js') : e));
+  });
+}
+
+function toast(msg, type='ok'){
+  const c = {ok:'green',err:'red',warn:'amber',info:'blue'}[type]||'blue';
+  const el = document.createElement('div'); el.className='toast c-'+c; el.textContent=msg;
+  $('#toasts').appendChild(el); setTimeout(()=>el.remove(), type==='err'||type==='warn'?7000:4000);
+}
+
+/* ============ LOGIN ============ */
+function deviceId(){
+  let d=store.get('gl_dev');
+  if(!d||!/^[A-Za-z0-9-]{8,64}$/.test(d)){
+    d=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('d'+Date.now().toString(36)+Math.random().toString(36).slice(2,12));
+    store.set('gl_dev',d);
+  }
+  return d;
+}
+function buildKeypad(){
+  const keys=['1','2','3','4','5','6','7','8','9','C','0','OK'];
+  $('#keypad').innerHTML = keys.map(k=>`<button class="key" data-k="${k}">${k==='OK'?'<span class="ms">login</span>':k==='C'?'<span class="ms">backspace</span>':k}</button>`).join('');
+  $$('#keypad .key').forEach(b=>b.onclick=()=>pinKey(b.dataset.k));
+  document.addEventListener('keydown',e=>{
+    if($('#login').classList.contains('hidden')) return;
+    if(/^\d$/.test(e.key)) pinKey(e.key); else if(e.key==='Backspace') pinKey('C'); else if(e.key==='Enter') pinKey('OK');
+  });
+  drawDots();
+}
+function drawDots(){ const n=Math.max(4,S.pin.length); $('#pinDots').innerHTML=Array.from({length:n},(_,i)=>`<i class="${i<S.pin.length?'on':''}"></i>`).join(''); }
+async function pinKey(k){
+  if(k==='C') S.pin=S.pin.slice(0,-1);
+  else if(k==='OK'){
+    if(S.pin.length<4){ $('#loginErr').textContent='PIN อย่างน้อย 4 หลัก'; return; }
+    $('#loginErr').textContent='กำลังตรวจสอบ...';
+    try{
+      const r = await api('login', S.pin, deviceId());
+      S.token=r.token; S.user=r.user; store.set('gl_token',r.token); store.set('gl_user',JSON.stringify(r.user));
+      S.pin=''; $('#loginErr').textContent=''; $('#login').classList.add('hidden'); startApp();
+      (r.warn||[]).forEach(w=>toast(w,'warn'));
+    }catch(e){ $('#loginErr').textContent=e.message; S.pin=''; }
+  } else if(S.pin.length<8) S.pin+=k;
+  drawDots();
+}
+function doLogout(silent){
+  if(S.token && !silent) api('logout', S.token).catch(()=>{});
+  S.token=null; S.user=null; store.del('gl_token'); store.del('gl_user');
+  $('#login').classList.remove('hidden'); S.pin=''; drawDots();
+}
+
+/* ============ NAV ============ */
+function go(pg){
+  if(pg==='settings' && (!S.user||S.user.role!=='admin')) return;
+  if(!S.token) return;
+  S.page=pg;
+  $$('.page').forEach(p=>p.classList.toggle('hidden', p.id!=='pg-'+pg));
+  $$('[data-pg]').forEach(b=>b.classList.toggle('active', b.dataset.pg===pg));
+  if(pg==='reports' && !S.report){ quick('month'); }
+  if(pg==='settings') loadSettings();
+  if(pg==='fleet') loadFleet();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+$$('[data-pg]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.pg)));
+
+async function refresh(silent){
+  try{ renderAll(await api('getDashboard', S.token, S.gen)); if(S.page==='fleet') loadFleet(true); if(!silent) toast('อัปเดตข้อมูลแล้ว','info'); }
+  catch(e){ if(!silent) toast(e.message,'err'); }
+}
+
+function startApp(){
+  $('#userBox').innerHTML = `<b style="color:var(--text)">${esc(S.user.name)}</b><br>${{admin:'ผู้ดูแลระบบ',operator:'ผู้ปฏิบัติงาน',viewer:'ผู้ดูรายงาน'}[S.user.role]||S.user.role}`;
+  $$('.admin-only').forEach(el=>el.classList.toggle('hidden', S.user.role!=='admin'));
+  $$('.opform').forEach(f=>f.classList.toggle('ro', !canEdit()));
+  $('#viewerNote').classList.toggle('hidden', canEdit());
+  go(S.page); refresh(true);
+}
+
+/* ============ RENDER ============ */
+function renderAll(d){
+  // ข้ามผลลัพธ์ของเครื่องอื่นที่ตอบกลับช้า (หลังผู้ใช้สลับเครื่องไปแล้ว)
+  if(S.gen && d.gen.id!==S.gen && d.gens.some(g=>g.id===S.gen && g.active)) return;
+  S.dash=d; S.offset=d.serverTime-Date.now();
+  S.gens=d.gens; S.gen=d.gen.id; store.set('gl_gen',S.gen);
+  if(!S.rGen) S.rGen=S.gen;
+  renderGenSel();
+  const sc='s-'+d.state;
+  $('#statePill').className='pill '+sc; $('#statePillTxt').textContent=d.stateLabel;
+  renderDashboard(d); renderControl(d); renderFuel(d); tick();
+}
+
+/* ============ MULTI-GENERATOR ============ */
+function renderGenSel(){
+  const act=activeGens();
+  $('#genSelWrap').classList.toggle('hidden', act.length<2);
+  $('#genSel').innerHTML = act.map(g=>`<option value="${esc(g.id)}" ${g.id===S.gen?'selected':''}>${esc(g.id)} · ${esc(g.name)}</option>`).join('');
+  $$('.genname').forEach(el=>el.textContent = (S.dash?S.dash.gen.name:'') );
+  // ตัวเลือกเครื่องในหน้ารายงาน (รวมเครื่องที่ปิดใช้งาน เพื่อดูประวัติ)
+  const cur = S.rGen==='ALL' || S.gens.some(g=>g.id===S.rGen) ? S.rGen : S.gen;
+  S.rGen = cur;
+  $('#rGen').innerHTML = (S.gens.length>1?`<option value="ALL" ${cur==='ALL'?'selected':''}>ทุกเครื่อง</option>`:'') +
+    S.gens.map(g=>`<option value="${esc(g.id)}" ${g.id===cur?'selected':''}>${esc(g.name)}${g.active?'':' (ปิดใช้งาน)'}</option>`).join('');
+  if(S.page==='settings') renderGenTable();
+}
+async function switchGen(id){
+  if(!id || id===S.gen) return;
+  S.gen=id; S.rGen=id; S.report=null; S.dash=null; $('#reportBody').innerHTML='';
+  await refresh(true);
+  if(S.page==='reports') quick('month');
+  if(S.page==='settings') loadSettings();
+}
+$('#genSel').addEventListener('change', e=>switchGen(e.target.value));
+
+async function loadFleet(silent){
+  try{
+    const o=await api('getOverview', S.token); S.ov=o;
+    $('#fleetAlerts').innerHTML = o.alerts.map(a=>{const c={critical:'red',warn:'amber'}[a.lv]||'blue';
+      return `<div class="alert c-${c}"><span class="ms">error</span><div><b>${esc(a.genName)}</b> — ${esc(a.msg)}</div></div>`;}).join('');
+    $('#fleetGrid').innerHTML = o.gens.map(g=>{
+      const col={ok:'green',warn:'amber',critical:'red'}[g.fuel.status];
+      return `<div class="card fcard s-${g.state}" onclick="openGen('${esc(g.id)}')">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><h3><span class="ms" style="color:var(--amber)">bolt</span>${esc(g.name)}</h3>
+          <div class="muted sm">${esc(g.id)} · ${g.kva} kVA${g.location?' · '+esc(g.location):''}</div></div>
+          ${g.alerts?`<span class="tag" style="color:var(--amber);border-color:var(--amber)">แจ้งเตือน ${g.alerts}</span>`:''}</div>
+        <div style="margin:12px 0"><span class="pill s-${g.state}"><span class="dot"></span>${esc(g.stateLabel)}</span>
+          ${g.since?`<span class="mono sm muted" style="margin-left:8px" data-since="${g.since}"></span>`:''}</div>
+        <div class="kv"><span>น้ำมันคงเหลือ</span><b class="mono">${fmtN(g.fuel.level,0)} / ${fmtN(g.fuel.cap,0)} ล.</b></div>
+        <div class="fbar"><i style="width:${Math.min(100,g.fuel.pct)}%;background:var(--${col})"></i></div>
+        <div class="kv" style="border:none"><span>${fmtN(g.fuel.pct,0)}% ของถัง</span><b class="mono" style="color:var(--${col})">เดินได้ ~${fmtN(g.fuel.hoursLeft,1)} ชม.</b></div>
+      </div>`;}).join('') || '<div class="card empty">ยังไม่มีเครื่องที่เปิดใช้งาน</div>';
+    const m=o.month, k=[['power_off','red','ไฟดับ',m.outages,'ครั้ง'],['settings_power','blue','ชั่วโมงเดินเครื่อง',fmtN(m.runHours,1),'ชม.'],
+      ['oil_barrel','red','น้ำมันที่ใช้ (ประมาณ)',fmtN(m.fuelUsed,1),'ลิตร'],['local_gas_station','green','เติมน้ำมัน',fmtN(m.refillL,0),'ลิตร'],
+      ['payments','cyan','ค่าน้ำมัน',fmtN(m.refillCost,0),'บาท'],['water_drop','amber','น้ำมันคงเหลือรวม',fmtN(o.totals.fuel,0),'/ '+fmtN(o.totals.cap,0)+' ล.']];
+    $('#fleetKpis').innerHTML=k.map(x=>`<div class="card kpi c-${x[1]}"><div class="ic"><span class="ms">${x[0]}</span></div><div class="v mono">${x[3]}<small>${x[4]}</small></div><div class="l">${x[2]}</div></div>`).join('');
+    tick();
+  }catch(e){ if(!silent) toast(e.message,'err'); }
+}
+async function openGen(id){ await switchGen(id); go('dashboard'); }
+
+
+const hs = (l,v) => `<div class="hs"><span>${l}</span><b>${v}</b></div>`;
+function tlItem(e,showGen){
+  const [ic,c] = EV[e.type]||['info','dim'];
+  return `<div class="tl"><div class="tli c-${c}"><span class="ms">${ic}</span></div><div class="tlb">
+    <div class="tlh"><b>${esc(e.label)}</b>${showGen&&e.gen?`<span class="gentag">${esc(gName(e.gen))}</span>`:''}${e.load!=null?`<span class="tag">โหลด ${e.load}%</span>`:''}</div>
+    <div class="muted sm">${fmtDT(e.t)} · ${esc(e.user)}</div>${e.detail?`<div class="sm">${esc(e.detail)}</div>`:''}</div></div>`;
+}
+
+function renderDashboard(d){
+  $('#genInfo').textContent = `${d.gen.id} · ${d.gen.name} · ${d.gen.kva} kVA · ${d.gen.fuelType}${d.gen.location?' · '+d.gen.location:''}`;
+  $('#alerts').innerHTML = d.alerts.map(a=>{const c={critical:'red',warn:'amber',info:'blue'}[a.lv];
+    return `<div class="alert c-${c}"><span class="ms">${a.lv==='info'?'info':'error'}</span><div>${esc(a.msg)}</div></div>`;}).join('');
+  // hero
+  $('#heroCard').className='card hero s-'+d.state; $('#heroState').textContent=d.stateLabel;
+  const c=d.current; let h;
+  if(!c){
+    h = `<p class="muted">ไฟฟ้าหลักปกติ เครื่องพร้อมใช้งาน</p><div class="hstats">
+      ${hs('เดินได้ (โหลด '+d.fuel.planLoad+'%)', fmtN(d.fuel.hoursLeft,1)+' ชม.')}
+      ${hs('วอร์มล่าสุด', d.warm.last?fmtDT(d.warm.last):'-')}</div>`;
+  } else {
+    h = `<span class="tag">${esc(c.typeLabel)} · ${esc(c.id)}</span><div class="hstats">`;
+    if(c.outageStart) h += hs('ไฟดับ', c.mainsRestored ? 'กลับแล้ว '+fmtT(c.mainsRestored) : `<span class="mono" data-since="${c.outageStart}"></span>`);
+    h += c.genStart ? hs('เครื่องทำงาน',`<span class="mono" data-since="${c.genStart}"></span>`) : hs('เครื่อง','ยังไม่สตาร์ท');
+    if(c.load!=null) h += hs('โหลดปัจจุบัน', `${c.load}% <span class="muted sm">≈${fmtN(c.rate,1)} ล./ชม.</span>`);
+    h += hs('น้ำมันใช้รอบนี้', fmtN(c.fuelUsed,1)+' ล.') + '</div>';
+  }
+  $('#heroBody').innerHTML=h;
+  // fuel
+  const f=d.fuel; $('#fuelCard').className='card f-'+f.status;
+  $('#tankFill').style.height=Math.min(100,f.pct)+'%'; $('#tankPct').textContent=fmtN(f.pct,0)+'%';
+  $('#fuelL').textContent=fmtN(f.level,0); $('#fuelCap').textContent=fmtN(d.gen.cap,0);
+  $('#planLoad').textContent=f.planLoad; $('#hrsLeft').textContent=fmtN(f.hoursLeft,1)+' ชม.'; $('#hrsFull').textContent=fmtN(f.hoursLeftFull,1)+' ชม.';
+  $('#lastMeasure').textContent=f.baseTime?`${fmtN(f.baseLevel,0)} ล. · ${fmtDT(f.baseTime)}`:'-';
+  $('#lastRefill').textContent=f.lastRefill?`${fmtN(f.lastRefill.liters,0)} ล. · ${fmtDT(f.lastRefill.t)}`:'-';
+  // kpis
+  const m=d.month;
+  const k=[['power_off','red','ไฟดับ',m.outages,'ครั้ง'],['timer','amber','เวลาไฟดับรวม',fmtDur(m.outageMin/60),''],
+    ['settings_power','blue','ชั่วโมงเดินเครื่อง',fmtN(m.runHours,1),'ชม.'],['oil_barrel','red','น้ำมันที่ใช้ (ประมาณ)',fmtN(m.fuelUsed,1),'ลิตร'],
+    ['local_gas_station','green','เติมน้ำมัน',fmtN(m.refillL,0),'ลิตร'],['payments','cyan','ค่าน้ำมัน',fmtN(m.refillCost,0),'บาท'],
+    ['autorenew','violet','วอร์มเครื่อง',m.warmups,'ครั้ง'],['warning','amber','เหตุขัดข้อง',m.faults,'ครั้ง']];
+  $('#kpis').innerHTML=k.map(x=>`<div class="card kpi c-${x[1]}"><div class="ic"><span class="ms">${x[0]}</span></div><div class="v mono">${x[3]}<small>${x[4]}</small></div><div class="l">${x[2]}</div></div>`).join('');
+  $('#recent').innerHTML = d.recent.length ? d.recent.map(tlItem).join('') : '<div class="empty">ยังไม่มีเหตุการณ์</div>';
+  // warmup
+  const w=d.warm, pct=Math.min(100,w.week/w.target*100), days=w.last?Math.floor((nowMs()-w.last)/864e5):null;
+  $('#warmBox').innerHTML = `<div class="big mono c-violet" style="color:var(--violet)">${w.week}<span class="muted" style="font-size:18px"> / ${w.target} ครั้ง</span></div>
+    <div class="muted sm">ใน 7 วันที่ผ่านมา</div><div class="progress"><i style="width:${pct}%"></i></div>
+    <div class="kv"><span>วอร์มล่าสุด</span><b>${w.last?fmtDT(w.last):'-'}</b></div>
+    <div class="kv"><span>ผ่านมาแล้ว</span><b>${days==null?'-':days+' วัน'}</b></div>
+    <div class="kv"><span>เวลาวอร์มแนะนำ</span><b>${w.minutes} นาที</b></div>
+    ${d.actions.includes('WARMUP_START')&&canEdit()?`<button class="btn primary block" style="margin-top:14px" onclick="openAction('WARMUP_START')"><span class="ms">autorenew</span>สตาร์ทวอร์มเครื่อง</button>`:''}`;
+}
+
+function renderControl(d){
+  const c=d.current;
+  $('#stateBar').className='card statebar s-'+d.state;
+  $('#stateBar').innerHTML = `<span class="dot"></span><div style="flex:1;min-width:200px"><div class="eyebrow">สถานะปัจจุบัน</div><h2>${esc(d.stateLabel)}</h2></div>
+    ${c&&c.genStart?`<div><div class="eyebrow">เครื่องทำงาน</div><b class="mono" style="font-size:22px" data-since="${c.genStart}"></b></div>`:''}
+    ${c&&c.outageStart&&!c.mainsRestored?`<div><div class="eyebrow">ไฟดับมาแล้ว</div><b class="mono" style="font-size:22px;color:var(--red)" data-since="${c.outageStart}"></b></div>`:''}`;
+  // flow
+  let steps, idx;
+  if(d.state==='WARMUP'){ steps=['สตาร์ทวอร์ม','วอร์มเครื่อง','หยุดเครื่อง']; idx=1; }
+  else { steps=['ไฟดับ','สตาร์ทเครื่อง','จ่ายไฟ','ไฟหลักกลับ','หยุดเครื่อง']; idx={IDLE:0,OUTAGE:1,RUNNING:2,SUPPLYING:3,COOLDOWN:4}[d.state]??0; }
+  $('#flow').innerHTML = steps.map((s,i)=>`<div class="step ${i<idx?'done':i===idx?'now':''}"><span class="n">${i<idx?'✓':i+1}</span>${s}</div>`).join('');
+  // buttons
+  $('#actionGrid').innerHTML = ORDER.map(a=>{const u=ACT[a], ok=d.actions.includes(a)&&canEdit();
+    return `<button class="abtn c-${u.c}" ${ok?'':'disabled'} onclick="openAction('${a}')"><span class="ms">${u.icon}</span><b>${u.label}</b><small>${u.desc}</small></button>`;}).join('');
+  $('#sessTimeline').innerHTML = c&&c.events.length ? c.events.map(tlItem).join('') : '<div class="empty">ไม่มีรอบการทำงานที่เปิดอยู่</div>';
+}
+
+function renderFuel(d){
+  const f=d.fuel, cap=d.gen.cap;
+  const upd=()=>{ const v=+(document.querySelector('#fRefill [name=liters]').value||0); const after=f.level+v;
+    const el=$('#refillHint'); el.className='hint'+(after>cap?' warn':'');
+    el.innerHTML = `คงถังตอนนี้ ≈ <b>${fmtN(f.level,0)}</b> ล. · ช่องว่างในถัง ≈ <b>${fmtN(Math.max(0,cap-f.level),0)}</b> ล.`+
+      (v?`<br>หลังเติมจะมี ≈ <b>${fmtN(after,0)}</b> ล. (${fmtN(after/cap*100,0)}%)${after>cap?' — เกินความจุถัง!':''}`:''); };
+  document.querySelector('#fRefill [name=liters]').oninput=upd; upd();
+  $('#measureHint').innerHTML = `ยอดคำนวณปัจจุบัน ≈ <b>${fmtN(f.level,1)}</b> ลิตร · ระบบจะคำนวณผลต่างและใช้ค่าที่วัดได้เป็นยอดตั้งต้นใหม่`;
+  $('#fuelTbl').innerHTML = `<thead><tr><th>วันเวลา</th><th>ประเภท</th><th class="num">ลิตร</th><th class="num">บาท</th><th class="num">ยอดคำนวณ</th><th class="num">วัดจริง</th><th class="num">ผลต่าง</th><th class="num">คงถัง</th><th>ผู้บันทึก</th><th>หมายเหตุ</th></tr></thead><tbody>`+
+    (d.fuelHistory.length?d.fuelHistory.map(x=>`<tr><td>${fmtDT(x.t)}</td><td><span class="tag">${x.typeLabel}</span></td><td class="num">${fmtN(x.liters,1)}</td><td class="num">${fmtN(x.cost,2)}</td><td class="num">${fmtN(x.calc,1)}</td><td class="num">${fmtN(x.measured,1)}</td><td class="num ${x.diff>0?'pos':x.diff<0?'neg':''}">${fmtN(x.diff,1)}</td><td class="num">${fmtN(x.after,1)}</td><td>${esc(x.by)}</td><td>${esc(x.note)}</td></tr>`).join(''):'<tr><td colspan="10" class="empty">ยังไม่มีข้อมูล</td></tr>')+'</tbody>';
+}
+
+function tick(){
+  const n=nowMs();
+  $$('[data-since]').forEach(el=>el.textContent=fmtClock(n-(+el.dataset.since)));
+  $('#clock').textContent=new Date(n).toLocaleString('th-TH',{timeZone:'Asia/Bangkok',weekday:'short',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+/* ============ MODAL / ACTIONS ============ */
+let modalOk=null;
+function openModal(title, html, onOk, color){
+  $('#mTitle').textContent=title; $('#mBody').innerHTML=html;
+  $('#mbox').style.setProperty('--c', `var(--${color||'blue'})`);
+  modalOk=onOk; $('#modal').classList.remove('hidden');
+}
+function closeModal(){ $('#modal').classList.add('hidden'); modalOk=null; }
+$('#mOk').onclick = async ()=>{
+  if(!modalOk) return; const b=$('#mOk'); b.disabled=true; b.textContent='กำลังบันทึก...';
+  try{ await modalOk(); closeModal(); }catch(e){ toast(e.message,'err'); }
+  finally{ b.disabled=false; b.textContent='ยืนยันบันทึก'; }
+};
+
+function openAction(a){
+  const d=S.dash, u=ACT[a], c=d.current;
+  const defLoad = (c && c.load>0) ? c.load : d.defaultLoad;
+  let h = `<p class="muted" style="margin-bottom:14px">${u.desc}</p>`;
+  if(u.load) h += `<label class="fld">โหลดโดยประมาณ <b class="mono" id="ldv" style="color:var(--amber);font-size:20px">${defLoad}%</b><input type="range" id="ld" min="0" max="100" step="5" value="${defLoad}"></label><div class="hint" id="ldr"></div>`;
+  if(u.hm) h += `<label class="fld">ชั่วโมงเครื่อง (Hour meter) <span class="sm">— ไม่บังคับ</span><input type="number" id="hm" step="0.1" min="0" inputmode="decimal" placeholder="เช่น 1234.5"></label>`;
+  h += `<label class="chk"><input type="checkbox" id="bk"> บันทึกย้อนหลัง (ระบุเวลาเอง)</label><input type="datetime-local" id="bkt" class="hidden" style="margin-bottom:12px">`;
+  h += `<label class="fld">${u.noteReq?'รายละเอียดเหตุขัดข้อง *':'หมายเหตุ'}<textarea id="nt" rows="2" placeholder="${u.noteReq?'อธิบายอาการ / สาเหตุ / การแก้ไข':'ไม่บังคับ'}"></textarea></label>`;
+  openModal(u.label+' · '+d.gen.name, h, async ()=>{
+    const p={note:$('#nt').value.trim()};
+    if(u.noteReq && !p.note) throw new Error('กรุณาระบุรายละเอียด');
+    if(u.load) p.load=+$('#ld').value;
+    if(u.hm) p.hourMeter=$('#hm').value;
+    if($('#bk').checked){ if(!$('#bkt').value) throw new Error('กรุณาระบุเวลา'); p.time=$('#bkt').value; }
+    const r = await api('doAction', S.token, S.gen, a, p);
+    renderAll(r.dashboard); toast(r.message,'ok');
+  }, u.c);
+  if(u.load){ const f=()=>{const v=+$('#ld').value; $('#ldv').textContent=v+'%';
+    $('#ldr').innerHTML=`อัตราสิ้นเปลือง ≈ <b>${fmtN(rateAt(v,d.curve),1)}</b> ลิตร/ชม. · กำลังไฟ ≈ ${fmtN(v*d.gen.kw/100,0)} kW · น้ำมันที่มีเดินได้ ≈ ${fmtN(d.fuel.level/rateAt(v,d.curve),1)} ชม.`;};
+    $('#ld').oninput=f; f(); }
+  $('#bk').onchange=e=>{ $('#bkt').classList.toggle('hidden',!e.target.checked); if(e.target.checked) $('#bkt').value=localInput(nowMs()); };
+}
+
+/* ============ FUEL FORMS ============ */
+function bindForm(id, fn){
+  $(id).addEventListener('submit', async e=>{
+    e.preventDefault(); const f=e.target, btn=f.querySelector('button[type=submit]'); btn.disabled=true;
+    try{
+      const r = await api(fn, S.token, S.gen, Object.fromEntries(new FormData(f)));
+      renderAll(r.dashboard); f.reset(); renderFuel(r.dashboard); toast(r.message,'ok');
+      (r.warnings||[]).forEach(w=>toast(w,'warn'));
+    }catch(err){ toast(err.message,'err'); } finally{ btn.disabled=false; }
+  });
+}
+bindForm('#fRefill','recordRefill'); bindForm('#fMeasure','recordMeasure');
+
+/* ============ REPORTS ============ */
+function quick(k){
+  const t=ymd(nowMs()); let f=t, to=t;
+  if(k==='7d') f=addDays(t,-6);
+  if(k==='month') f=t.slice(0,8)+'01';
+  if(k==='lastmonth'){ const first=t.slice(0,8)+'01'; to=addDays(first,-1); f=to.slice(0,8)+'01'; }
+  if(k==='year') f=t.slice(0,4)+'-01-01';
+  $('#rFrom').value=f; $('#rTo').value=to; runReport();
+}
+async function runReport(){
+  const f=$('#rFrom').value, t=$('#rTo').value, ty=$('#rType').value;
+  if(!f||!t) return toast('กรุณาเลือกช่วงวันที่','warn');
+  $('#reportBody').innerHTML='<div class="card empty" style="margin-top:14px">กำลังประมวลผล...</div>';
+  try{ S.report=await api('getReport',S.token,S.rGen||S.gen,f,t,ty); renderReport(S.report); }
+  catch(e){ $('#reportBody').innerHTML=''; toast(e.message,'err'); }
+}
+function renderReport(r){
+  const s=r.summary, all=r.genId==='ALL', gc=x=>all?`<td>${esc(gName(x.gen))}</td>`:'', gh=all?'<th>เครื่อง</th>':'';
+  const k=[['power_off','red','ไฟดับ',s.outages,'ครั้ง'],['timer','amber','เวลาไฟดับรวม',fmtDur(s.outageMin/60),''],
+    ['autorenew','violet','วอร์มเครื่อง',s.warmups,'ครั้ง'],['settings_power','blue','เดินเครื่องรวม',fmtN(s.runHours,1),'ชม.'],
+    ['oil_barrel','red','น้ำมันที่ใช้',fmtN(s.fuelUsed,1),'ลิตร'],['local_gas_station','green','เติมรวม',fmtN(s.refillL,0),'ลิตร'],
+    ['payments','cyan','ค่าน้ำมัน',fmtN(s.refillCost,0),'บาท'],['warning','amber','เหตุขัดข้อง',s.faults,'ครั้ง']];
+  let h = `<div class="sect">${esc(r.gen.name)} · สรุป ${thDate(r.from)} – ${thDate(r.to)}</div><div class="grid kpis">`+
+    k.map(x=>`<div class="card kpi c-${x[1]}"><div class="ic"><span class="ms">${x[0]}</span></div><div class="v mono">${x[3]}<small>${x[4]}</small></div><div class="l">${x[2]}</div></div>`).join('')+`</div>`;
+  h += `<div class="card" style="margin-top:14px"><h3><span class="ms">bar_chart</span>แนวโน้มการใช้น้ำมันและชั่วโมงเดินเครื่อง</h3><div class="chartbox"><canvas id="chart"></canvas></div></div>`;
+  if(r.type==='ALL'||r.type==='OUTAGE'||r.type==='WARMUP') h += `<div class="card" style="margin-top:14px"><h3><span class="ms">list_alt</span>รายการการทำงาน (${r.sessions.length})</h3><div class="tblwrap"><table class="tbl">
+    <thead><tr>${gh}<th>วันที่</th><th>ประเภท</th><th>ไฟดับ</th><th>สตาร์ท</th><th>ไฟกลับ</th><th>หยุด</th><th class="num">ไฟดับ (นาที)</th><th class="num">เดินเครื่อง (ชม.)</th><th class="num">โหลดเฉลี่ย</th><th class="num">น้ำมัน (ล.)</th><th>ผู้บันทึก</th></tr></thead><tbody>`+
+    (r.sessions.length?r.sessions.map(x=>`<tr>${gc(x)}<td>${fmtD(x.start)}</td><td><span class="tag">${x.typeLabel}</span></td><td>${fmtT(x.outageStart)}</td><td>${fmtT(x.genStart)}</td><td>${fmtT(x.mainsRestored)}</td><td>${fmtT(x.genStop)}</td><td class="num">${fmtN(x.outageMin,0)}</td><td class="num">${fmtN(x.runHours,2)}</td><td class="num">${x.avgLoad?x.avgLoad+'%':'-'}</td><td class="num">${fmtN(x.fuel,1)}</td><td>${esc(x.operator)}</td></tr>`).join(''):'<tr><td colspan="12" class="empty">ไม่มีข้อมูล</td></tr>')+`</tbody></table></div></div>`;
+  if(r.type==='ALL'||r.type==='FUEL') h += `<div class="card" style="margin-top:14px"><h3><span class="ms">local_gas_station</span>รายการเชื้อเพลิง (${r.fuel.length})</h3><div class="tblwrap"><table class="tbl">
+    <thead><tr>${gh}<th>วันเวลา</th><th>ประเภท</th><th class="num">ลิตร</th><th class="num">ราคา/ล.</th><th class="num">รวม (บาท)</th><th class="num">ยอดคำนวณ</th><th class="num">วัดจริง</th><th class="num">ผลต่าง</th><th>ผู้บันทึก</th></tr></thead><tbody>`+
+    (r.fuel.length?r.fuel.map(x=>`<tr>${gc(x)}<td>${fmtDT(x.t)}</td><td><span class="tag">${x.typeLabel}</span></td><td class="num">${fmtN(x.liters,1)}</td><td class="num">${fmtN(x.price,2)}</td><td class="num">${fmtN(x.cost,2)}</td><td class="num">${fmtN(x.calc,1)}</td><td class="num">${fmtN(x.measured,1)}</td><td class="num ${x.diff>0?'pos':x.diff<0?'neg':''}">${fmtN(x.diff,1)}</td><td>${esc(x.by)}</td></tr>`).join(''):'<tr><td colspan="10" class="empty">ไม่มีข้อมูล</td></tr>')+`</tbody></table></div></div>`;
+  if(r.type==='ALL'||r.type==='FAULT') h += `<div class="card" style="margin-top:14px"><h3><span class="ms">warning</span>เหตุขัดข้อง (${r.faults.length})</h3>`+
+    (r.faults.length?`<div class="timeline">${r.faults.map(e=>tlItem(e,all)).join('')}</div>`:'<div class="empty">ไม่มีเหตุขัดข้อง</div>')+`</div>`;
+  $('#reportBody').innerHTML=h; drawChart(r.daily);
+}
+function drawChart(daily){
+  if(typeof Chart==='undefined' || !$('#chart')) return;
+  if(S.chart) S.chart.destroy();
+  const g='rgba(255,255,255,.06)', t='#8899b8';
+  S.chart = new Chart($('#chart'),{data:{labels:daily.map(x=>x.label),datasets:[
+    {type:'bar',label:'น้ำมันที่ใช้ (ล.)',data:daily.map(x=>x.fuelUsed),backgroundColor:'rgba(239,68,68,.75)',borderRadius:6,yAxisID:'y'},
+    {type:'bar',label:'เติมน้ำมัน (ล.)',data:daily.map(x=>x.refillL),backgroundColor:'rgba(34,197,94,.75)',borderRadius:6,yAxisID:'y'},
+    {type:'line',label:'ชั่วโมงเดินเครื่อง',data:daily.map(x=>x.runHours),borderColor:'#38bdf8',backgroundColor:'#38bdf8',tension:.35,pointRadius:3,yAxisID:'y1'}]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:'#c7d2e6',font:{family:'IBM Plex Sans Thai'}}}},
+      scales:{x:{ticks:{color:t},grid:{color:'transparent'}},y:{beginAtZero:true,ticks:{color:t},grid:{color:g},title:{display:true,text:'ลิตร',color:t}},
+        y1:{beginAtZero:true,position:'right',ticks:{color:t},grid:{display:false},title:{display:true,text:'ชม.',color:t}}}}});
+}
+async function exportSheet(){
+  if(!$('#rFrom').value) return toast('กรุณาเลือกช่วงวันที่','warn');
+  toast('กำลังสร้างไฟล์ Google Sheet...','info');
+  try{ const url=await api('exportReport',S.token,S.rGen||S.gen,$('#rFrom').value,$('#rTo').value,$('#rType').value);
+    openModal('ส่งออกเรียบร้อย',`<p style="margin-bottom:14px">สร้างไฟล์รายงานใน Google Drive แล้ว</p><a class="btn primary block" href="${esc(url)}" target="_blank" rel="noopener"><span class="ms">open_in_new</span>เปิดไฟล์รายงาน</a>`,async()=>{},'green');
+  }catch(e){ toast(e.message,'err'); }
+}
+
+/* ============ PRINT ============ */
+function printHTML(html){ $('#printArea').innerHTML=html; setTimeout(()=>window.print(),150); }
+const ptd = (v,r) => `<td class="${r?'r':''}">${v==null||v===''?'-':v}</td>`;
+function printReport(){
+  const r=S.report; if(!r) return toast('กรุณาแสดงรายงานก่อน','warn'); const s=r.summary;
+  let h=`<div class="pdoc"><h2>รายงานการใช้งานเครื่องกำเนิดไฟฟ้า</h2><p>${esc(r.gen.name)}${r.gen.kva?' '+r.gen.kva+' kVA':''}${r.gen.location?' · '+esc(r.gen.location):''}<br>ระหว่างวันที่ ${thDate(r.from)} ถึง ${thDate(r.to)}</p>
+  <h3>สรุปผล</h3><table class="ptbl"><tr><th>ไฟดับ (ครั้ง)</th><th>เวลาไฟดับรวม</th><th>วอร์มเครื่อง (ครั้ง)</th><th>เดินเครื่อง (ชม.)</th><th>น้ำมันที่ใช้ (ล.)</th><th>เติม (ล.)</th><th>ค่าน้ำมัน (บาท)</th><th>ขัดข้อง</th></tr>
+  <tr>${ptd(s.outages,1)}${ptd(fmtDur(s.outageMin/60))}${ptd(s.warmups,1)}${ptd(fmtN(s.runHours,2),1)}${ptd(fmtN(s.fuelUsed,1),1)}${ptd(fmtN(s.refillL,1),1)}${ptd(fmtN(s.refillCost,2),1)}${ptd(s.faults,1)}</tr></table>`;
+  const all=r.genId==='ALL', gh=all?'<th>เครื่อง</th>':'', gp=x=>all?ptd(esc(gName(x.gen))):'';
+  if(r.sessions.length) h+=`<h3>รายการการทำงาน</h3><table class="ptbl"><tr>${gh}<th>วันที่</th><th>ประเภท</th><th>ไฟดับ</th><th>สตาร์ท</th><th>ไฟกลับ</th><th>หยุด</th><th>เดินเครื่อง (ชม.)</th><th>น้ำมัน (ล.)</th><th>ผู้บันทึก</th></tr>`+
+    r.sessions.map(x=>`<tr>${gp(x)}${ptd(fmtD(x.start))}${ptd(x.typeLabel)}${ptd(fmtT(x.outageStart))}${ptd(fmtT(x.genStart))}${ptd(fmtT(x.mainsRestored))}${ptd(fmtT(x.genStop))}${ptd(fmtN(x.runHours,2),1)}${ptd(fmtN(x.fuel,1),1)}${ptd(esc(x.operator))}</tr>`).join('')+`</table>`;
+  if(r.fuel.length) h+=`<h3>รายการเชื้อเพลิง</h3><table class="ptbl"><tr>${gh}<th>วันเวลา</th><th>ประเภท</th><th>ลิตร</th><th>รวม (บาท)</th><th>ยอดคำนวณ</th><th>วัดจริง</th><th>ผลต่าง</th><th>ผู้บันทึก</th></tr>`+
+    r.fuel.map(x=>`<tr>${gp(x)}${ptd(fmtDT(x.t))}${ptd(x.typeLabel)}${ptd(fmtN(x.liters,1),1)}${ptd(fmtN(x.cost,2),1)}${ptd(fmtN(x.calc,1),1)}${ptd(fmtN(x.measured,1),1)}${ptd(fmtN(x.diff,1),1)}${ptd(esc(x.by))}</tr>`).join('')+`</table>`;
+  h+=`<div class="sign"><div>ลงชื่อ ................................ ผู้รายงาน<br>(................................)</div><div>ลงชื่อ ................................ ผู้ตรวจสอบ<br>(................................)</div></div>
+  <p style="margin-top:20px;font-size:9pt">พิมพ์จากระบบ GenLog โดย ${esc(r.generatedBy)} · ${fmtDT(r.generatedAt)} · ยอดน้ำมันที่ใช้เป็นค่าประมาณการจากอัตราสิ้นเปลืองตามโหลด</p></div>`;
+  printHTML(h);
+}
+function printAnnex(){
+  const r=S.report; if(!r) return toast('กรุณาแสดงรายงานก่อน','warn');
+  const all=r.genId==='ALL', ncol=all?8:7;
+  const rows = r.annex.length ? r.annex.map((x,i)=>`<tr>${ptd(i+1,1)}${all?ptd(esc(gName(x.gen))):''}${ptd(fmtD(x.t))}${ptd(esc(x.fuelType))}${ptd(x.serviced==null?'-':fmtN(x.serviced,1),1)}${ptd(fmtN(x.inTank,1)+(x.measured?' (วัด)':''),1)}${ptd(esc(x.inspector))}${ptd(esc(x.note))}</tr>`).join('')
+    : `<tr><td colspan="${ncol}" style="text-align:center">ไม่มีรายการในช่วงนี้</td></tr>`;
+  printHTML(`<div class="pdoc"><h2>${esc(ANNEX_TITLE)}</h2><p>${esc(r.gen.name)}${r.gen.kva?' '+r.gen.kva+' kVA · ความจุถัง '+fmtN(r.gen.cap,0)+' ลิตร':''}<br>ระหว่างวันที่ ${thDate(r.from)} ถึง ${thDate(r.to)}</p>
+  <table class="ptbl"><tr><th>ลำดับ</th>${all?'<th>เครื่อง</th>':''}<th>วัน เดือน ปี</th><th>ประเภทเชื้อเพลิง</th><th>จำนวนบริการเชื้อเพลิง (ลิตร)</th><th>เชื้อเพลิงคงถัง (ลิตร)</th><th>ผู้ตรวจสอบ</th><th>หมายเหตุ</th></tr>${rows}</table>
+  <div class="sign"><div>ลงชื่อ ................................ ผู้ตรวจสอบ<br>(................................)</div><div>ลงชื่อ ................................ ผู้บังคับบัญชา<br>(................................)</div></div></div>`);
+}
+
+/* ============ SETTINGS ============ */
+function renderGenTable(){
+  const sa=S.user&&S.user.role==='admin';
+  $('#genTbl').innerHTML = `<thead><tr><th>รหัส</th><th>ชื่อเครื่อง</th><th class="num">kVA</th><th class="num">ถัง (ล.)</th><th>สถานะระบบ</th><th>การใช้งาน</th><th></th></tr></thead><tbody>`+
+    S.gens.map(g=>`<tr class="${g.active?'':'off'}"><td><b>${esc(g.id)}</b></td><td>${esc(g.name)}${g.location?`<div class="muted sm">${esc(g.location)}</div>`:''}</td>
+      <td class="num">${g.kva}</td><td class="num">${fmtN(g.cap,0)}</td><td><span class="pill s-${g.state}" style="padding:3px 10px;font-size:12px">${esc(g.stateLabel)}</span></td>
+      <td>${g.active?'<span class="tag" style="color:var(--green)">เปิดใช้งาน</span>':'<span class="tag">ปิดใช้งาน</span>'}</td>
+      <td style="white-space:nowrap">${sa&&g.active&&g.id!==S.gen?`<button class="btn" onclick="switchGen('${esc(g.id)}')">ตั้งค่า</button> `:''}
+        ${sa?`<button class="btn ${g.active?'ghost':''}" onclick="toggleGen('${esc(g.id)}',${!g.active})">${g.active?'ปิดใช้งาน':'เปิดใช้งาน'}</button>`:''}</td></tr>`).join('')+'</tbody>';
+}
+async function toggleGen(id,on){
+  try{ const r=await api('setGeneratorActive',S.token,id,on); S.gens=r.gens; toast(r.message,'ok'); await refresh(true); renderGenTable(); }
+  catch(e){ toast(e.message,'err'); }
+}
+async function loadSettings(){
+  renderGenTable();
+  try{
+    const r=await api('getAdminSettings',S.token,S.gen);
+    $('#setForm').innerHTML = r.settings.map(s=>`<label class="fld">${esc(s.desc)}<input name="${s.key}" value="${esc(s.value)}" ${s.type==='text'?'':'type="number" step="any" min="0" inputmode="decimal"'}></label>`).join('');
+    const ci=(row,k,v)=>`<td><input class="cin" data-row="${row}" data-k="${k}" type="number" step="0.1" min="0" value="${esc(v)}" style="padding:8px;width:84px"></td>`;
+    $('#curveTbl').innerHTML = `<thead><tr><th>โหลด</th><th>ต่ำสุด</th><th>สูงสุด</th><th>ใช้คำนวณ</th><th>g/kWh</th></tr></thead><tbody>`+
+      r.curve.map(c=>`<tr><td><b>${c.load}%</b></td>${ci(c.row,'min',c.min)}${ci(c.row,'max',c.max)}${ci(c.row,'used',c.used)}${ci(c.row,'sfc',c.sfc)}</tr>`).join('')+'</tbody>';
+  }catch(e){ toast(e.message,'err'); }
+}
+async function saveSettings(){
+  try{
+    const settings=Object.fromEntries(new FormData($('#setForm')));
+    const rows={};
+    $$('.cin').forEach(i=>{ const r=i.dataset.row; (rows[r]=rows[r]||{row:+r})[i.dataset.k]=i.value; });
+    const r=await api('saveAdminSettings',S.token,S.gen,settings,Object.values(rows)); toast(r.message,'ok'); await refresh(true); renderGenTable();
+  }catch(e){ toast(e.message,'err'); }
+}
+function openAddGen(){
+  const opts = S.gens.map(g=>`<option value="${esc(g.id)}">${esc(g.name)} (${g.kva} kVA)</option>`).join('');
+  openModal('เพิ่มเครื่องกำเนิดไฟฟ้า',`
+    <label class="fld">ชื่อเครื่อง *<input id="ag_name" placeholder="เช่น เครื่องสำรองอาคาร B" maxlength="100"></label>
+    <div class="row2">
+      <label class="fld">ขนาด (kVA) *<input id="ag_kva" type="number" step="any" min="1" inputmode="decimal"></label>
+      <label class="fld">กำลัง (kW)<input id="ag_kw" type="number" step="any" min="1" inputmode="decimal" placeholder="เว้นว่าง = 0.8 × kVA"></label>
+    </div>
+    <div class="row2">
+      <label class="fld">ความจุถัง (ลิตร) *<input id="ag_tank" type="number" step="any" min="1" inputmode="decimal"></label>
+      <label class="fld">ระดับน้ำมันตอนนี้ (ลิตร)<input id="ag_init" type="number" step="any" min="0" inputmode="decimal" placeholder="เว้นว่าง = เต็มถัง"></label>
+    </div>
+    <div class="row2">
+      <label class="fld">ชนิดเชื้อเพลิง<input id="ag_fuel" value="ดีเซล" maxlength="30"></label>
+      <label class="fld">เดินเปล่า (ลิตร/ชม.)<input id="ag_idle" type="number" step="any" min="0" inputmode="decimal" placeholder="เว้นว่าง = ประมาณจาก kVA"></label>
+    </div>
+    <label class="fld">สถานที่ติดตั้ง<input id="ag_loc" maxlength="100"></label>
+    <label class="fld">รหัสเครื่อง <span class="sm">— เว้นว่างให้ระบบตั้งให้ (GEN-02, GEN-03, …)</span><input id="ag_id" placeholder="เช่น GEN-B" maxlength="20" style="text-transform:uppercase"></label>
+    <label class="fld">ตั้งต้นตารางอัตราสิ้นเปลืองจาก<select id="ag_from">${opts}<option value="">ค่ามาตรฐาน 250 kVA</option></select></label>
+    <label class="chk"><input type="checkbox" id="ag_scale" checked> ปรับสัดส่วนตามขนาด kVA</label>
+    <div class="hint warn">ตารางที่ได้เป็นค่าประมาณ — หลังเพิ่มเครื่องควรเข้า "ตั้งค่า" แล้วแก้ให้ตรงตามเอกสารของเครื่องนั้น</div>`,
+  async()=>{
+    const v=id=>$(id).value.trim();
+    if(!v('#ag_name')) throw new Error('กรุณาระบุชื่อเครื่อง');
+    const r=await api('addGenerator',S.token,{name:v('#ag_name'),kva:v('#ag_kva'),kw:v('#ag_kw'),tank:v('#ag_tank'),initLevel:v('#ag_init'),
+      fuelType:v('#ag_fuel'),idleRate:v('#ag_idle'),location:v('#ag_loc'),id:v('#ag_id'),curveFrom:$('#ag_from').value,scale:$('#ag_scale').checked});
+    S.gens=r.gens; toast(r.message,'ok');
+    S.gen=r.genId; S.rGen=r.genId; S.report=null; S.dash=null;
+    await refresh(true); go('settings');
+  },'green');
+}
+function resetState(){
+  openModal('รีเซ็ตสถานะ · '+(S.dash?S.dash.gen.name:''),`<p class="muted" style="margin-bottom:12px">สถานะปัจจุบัน: <b style="color:var(--text)">${esc(S.dash?S.dash.stateLabel:'-')}</b></p><label class="fld">เหตุผล *<textarea id="rsn" rows="2"></textarea></label>`,async()=>{
+    const n=$('#rsn').value.trim(); if(!n) throw new Error('กรุณาระบุเหตุผล');
+    const r=await api('forceReset',S.token,S.gen,n); renderAll(r.dashboard); toast(r.message,'ok');
+  },'red');
+}
+
+/* ============ BOOT ============ */
+buildKeypad();
+setInterval(tick,1000);
+setInterval(()=>{ if(S.token && !document.hidden && $('#modal').classList.contains('hidden') && ['dashboard','control','fuel','fleet'].includes(S.page)) refresh(true); },120000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden && S.token) refresh(true); });
+if(S.token && S.user){ startApp(); } else { $('#login').classList.remove('hidden'); }
+</script>
+</body>
+</html>
